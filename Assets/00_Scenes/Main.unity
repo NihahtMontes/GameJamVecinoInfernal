@@ -13842,7 +13842,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::CameraFollow
   target: {fileID: 2929546038984166858}
   smoothSpeed: 5
-  offset: {x: 0, y: 0, z: -10}
+  minZoom: 3
+  maxZoom: 12
+  zoomSpeed: 3
+  zoomSmooth: 6
 --- !u!4 &543740004
 Transform:
   m_ObjectHideFlags: 0

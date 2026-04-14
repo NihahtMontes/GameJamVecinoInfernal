@@ -66,9 +66,9 @@ public class Player : MonoBehaviour
         if (fadeImage != null) StartCoroutine(FadeIn());
 
         // Actualizar UI inicial
-        // if (GameManager.Instance != null)
-        //     GameManager.Instance.UpdateFlashlightUI(currentCharges, maxFlashlightCharges);
-    }
+        if (GameManager.Instance != null)
+            GameManager.Instance.UpdateFlashlightUI(currentCharges, maxFlashlightCharges);
+    }   
 
     // =============================================================
     void Update()
@@ -139,8 +139,8 @@ public class Player : MonoBehaviour
         currentCharges--;
 
         // Actualizar UI
-        // if (GameManager.Instance != null)
-        //     GameManager.Instance.UpdateFlashlightUI(currentCharges, maxFlashlightCharges);
+        if (GameManager.Instance != null)
+            GameManager.Instance.UpdateFlashlightUI(currentCharges, maxFlashlightCharges);
 
         // Calcular dirección del cursor en el mundo
         if (Camera.main != null)
@@ -178,8 +178,8 @@ public class Player : MonoBehaviour
     public void AddFlashlightCharges(int amount)
     {
         currentCharges = Mathf.Min(currentCharges + amount, maxFlashlightCharges);
-        // if (GameManager.Instance != null)
-        //     GameManager.Instance.UpdateFlashlightUI(currentCharges, maxFlashlightCharges);
+        if (GameManager.Instance != null)
+            GameManager.Instance.UpdateFlashlightUI(currentCharges, maxFlashlightCharges);
     }
 
     // =============================================================
