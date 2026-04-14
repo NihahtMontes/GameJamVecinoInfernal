@@ -12,16 +12,18 @@ public class Player : MonoBehaviour
     private Vector2 movement;
     private bool isTransitioning = false;
 
+    // ── NUEVO: el Dialogue lo controla ──────────────────────
+    [HideInInspector] public bool canMove = true;
+    // ────────────────────────────────────────────────────────
+
     [Header("UI & Transiciones")]
-    // Para el fade — asigna en el Inspector un Image negro que cubra toda la pantalla
     public Image fadeImage;
     public float fadeDuration = 1f;
 
     [Header("Habilidades (Extraído de DaniloRomero)")]
     public float flashDistance = 2.0f;
     public KeyCode attackKey = KeyCode.Space;
-    
-    // Esta variable la leerá el enemigo
+
     [HideInInspector] public bool isMakingNoise = false;
     private EnemyIA enemyScript;
 
@@ -29,26 +31,29 @@ public class Player : MonoBehaviour
     {
         rb = GetComponent<Rigidbody2D>();
         animator = GetComponent<Animator>();
-
-        // Busca al enemigo automáticamente al iniciar (si existe)
         enemyScript = Object.FindFirstObjectByType<EnemyIA>();
 
-        // Empieza el fade de entrada (negro → transparente)
         if (fadeImage != null)
             StartCoroutine(FadeIn());
     }
 
     void Update()
     {
-        if (isTransitioning) return; // bloquea movimiento durante transición
+        // Bloquea si está en transición O si el diálogo lo pidió
+        if (isTransitioning || !canMove)
+        {
+            // Asegura que el personaje quede quieto visualmente
+            movement = Vector2.zero;
+            animator.SetBool("IsMoving", false);
+            isMakingNoise = false;
+            return;
+        }
 
         movement.x = Input.GetAxisRaw("Horizontal");
         movement.y = Input.GetAxisRaw("Vertical");
 
-        // Comunicar ruido al enemigo
         isMakingNoise = (movement.magnitude > 0.1f);
 
-        // Control de Animaciones
         if (movement.magnitude > 0)
         {
             animator.SetBool("IsMoving", true);
@@ -68,7 +73,11 @@ public class Player : MonoBehaviour
             animator.SetBool("IsMoving", false);
         }
 
-        // Ataque con linterna
+        // ── CAMBIO: el atacar con linterna ya no usa Space ──
+        // Space ahora lo usa el diálogo para avanzar líneas.
+        // Si querés mantener Space para la linterna cuando NO
+        // hay diálogo activo, dejalo así. Si preferís otra tecla
+        // cambiá attackKey en el Inspector.
         if (Input.GetKeyDown(attackKey))
         {
             AtacarConLinterna();
@@ -77,13 +86,12 @@ public class Player : MonoBehaviour
 
     void FixedUpdate()
     {
-        if (isTransitioning) return;
+        if (isTransitioning || !canMove) return;
         rb.MovePosition(rb.position + movement.normalized * speed * Time.fixedDeltaTime);
     }
 
     void AtacarConLinterna()
     {
-        // Si no se encontró al inicio, intentamos buscarlo de nuevo
         if (enemyScript == null) enemyScript = Object.FindFirstObjectByType<EnemyIA>();
 
         if (enemyScript != null)
@@ -109,11 +117,7 @@ public class Player : MonoBehaviour
     {
         isTransitioning = true;
         animator.SetBool("IsMoving", false);
-
-        // Fade transparente → negro
         yield return StartCoroutine(FadeOut());
-
-        // Cargar escena Interior
         SceneManager.LoadScene("Interior");
     }
 
@@ -147,7 +151,6 @@ public class Player : MonoBehaviour
         }
     }
 
-    // Dibujar el círculo de la linterna en el editor para visualización
     private void OnDrawGizmosSelected()
     {
         Gizmos.color = Color.yellow;
