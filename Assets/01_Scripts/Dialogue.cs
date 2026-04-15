@@ -135,11 +135,17 @@ public class Dialogue : MonoBehaviour
         dialogueMark.SetActive(false);
         dialogueText.text = "";
 
+        // Iniciar sonido de teclado
+        if (AudioManager.Instance != null) AudioManager.Instance.StartTeclado();
+
         foreach (char c in fullText)
         {
             dialogueText.text += c;
             yield return new WaitForSeconds(charDelay);
         }
+
+        // Detener sonido de teclado al terminar de escribir
+        if (AudioManager.Instance != null) AudioManager.Instance.StopTeclado();
 
         _isTyping = false;
         dialogueMark.SetActive(true);
@@ -149,6 +155,9 @@ public class Dialogue : MonoBehaviour
     {
         if (_typingCoroutine != null)
             StopCoroutine(_typingCoroutine);
+
+        // Detener sonido de teclado al saltar
+        if (AudioManager.Instance != null) AudioManager.Instance.StopTeclado();
 
         dialogueText.text = _currentLines[_lineIndex].text;
         _isTyping = false;

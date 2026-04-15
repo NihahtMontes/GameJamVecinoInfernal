@@ -89,7 +89,7 @@ public class Player : MonoBehaviour
 
         isMakingNoise = movement.magnitude > 0.1f; // Ruido al moverse
 
-        // ── Animaciones ──
+        // ── Animaciones y Pasos ──
         if (movement.magnitude > 0)
         {
             if (animator) animator.SetBool("IsMoving", true);
@@ -103,10 +103,14 @@ public class Player : MonoBehaviour
                 if (animator) animator.SetFloat("MoveX", movement.x);
                 if (animator) animator.SetFloat("MoveY", 0);
             }
+            // Sonido de pasos
+            if (AudioManager.Instance != null) AudioManager.Instance.StartPasos();
         }
         else
         {
             if (animator) animator.SetBool("IsMoving", false);
+            // Detener pasos
+            if (AudioManager.Instance != null) AudioManager.Instance.StopPasos();
         }
 
         // ── Linterna: Click Izquierdo del Mouse ──

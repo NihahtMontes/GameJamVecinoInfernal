@@ -44,8 +44,23 @@ public class GameManager : MonoBehaviour
     //  UI — PANELES GAME OVER / WIN
     // ─────────────────────────────────────────────────────────────
     [Header("UI — Paneles")]
-    public GameObject gameOverPanel;   // Panel "GAME OVER" (inactivo al inicio)
-    public GameObject winPanel;        // Panel "¡SOBREVIVISTE!" (inactivo al inicio)
+    public GameObject gameOverPanel;
+    public GameObject winPanel;
+
+    // ─────────────────────────────────────────────────────────────
+    //  UI — BARRA DE VIDA DEL FANTASMA
+    // ─────────────────────────────────────────────────────────────
+    [Header("UI — Vida del Fantasma")]
+    public Slider  ghostHealthBar;    // Slider de la barra de vida
+    public Image   ghostHealthFill;   // La imagen "Fill" del Slider (para cambiarle color)
+
+    // ─────────────────────────────────────────────────────────────
+    //  UI — MODO Y ALERTAS
+    // ─────────────────────────────────────────────────────────────
+    [Header("UI — Modo y Alertas")]
+    public TextMeshProUGUI modeText;    // Texto de modo: CAZADOR / TE PERSIGUEN
+    public TextMeshProUGUI alertText;   // Mensajes temporales de evento
+    private Coroutine alertCoroutine;
 
     // ─────────────────────────────────────────────────────────────
     //  EFECTO PELIGRO — Overlay rojo pulsante
@@ -67,7 +82,7 @@ public class GameManager : MonoBehaviour
     public float           itemSpawnInterval = 30f;
 
     private float      itemSpawnTimer = 0f;
-    private GameObject currentItem   = null;
+    [HideInInspector] public GameObject currentItem   = null;
 
     // ─────────────────────────────────────────────────────────────
     //  MODO CAZADOR (Power Item)
@@ -79,7 +94,7 @@ public class GameManager : MonoBehaviour
     [HideInInspector] public bool isHunterModeActive = false;
     private float      hunterModeTimer     = 0f;
     private float      powerSpawnTimer     = 0f;
-    private GameObject currentPowerItem    = null;
+    [HideInInspector] public GameObject currentPowerItem    = null;
 
     // =============================================================
     void Awake()
@@ -100,6 +115,10 @@ public class GameManager : MonoBehaviour
 
         // Overlay transparente
         if (dangerOverlay) dangerOverlay.color = new Color(1f, 0f, 0f, 0f);
+
+        // Textos vacíos al inicio
+        if (modeText)  modeText.text  = "";
+        if (alertText) alertText.text = "";
 
         // UI inicial
         UpdateTimerUI();
@@ -136,6 +155,7 @@ public class GameManager : MonoBehaviour
             if (hunterModeTimer <= 0f)
             {
                 isHunterModeActive = false;
+                if (modeText) modeText.text = "";
             }
         }
 
@@ -212,8 +232,17 @@ public class GameManager : MonoBehaviour
     public void TriggerGameOver()
     {
         if (!gameActive) return;
-        gameActive       = false;
-        Time.timeScale   = 0f;
+        gameActive     = false;
+        Time.timeScale = 0f;
+
+        // Audio
+        if (AudioManager.Instance != null) AudioManager.Instance.PlayGameOver();
+
+        // Limpiar textos y overlay
+        if (modeText)     modeText.text  = "";
+        if (alertText)    alertText.text = "";
+        if (dangerOverlay) dangerOverlay.color = new Color(1f, 0f, 0f, 0f);
+        if (alertCoroutine != null) StopCoroutine(alertCoroutine);
 
         if (gameOverPanel) gameOverPanel.SetActive(true);
     }
@@ -224,8 +253,17 @@ public class GameManager : MonoBehaviour
     public void TriggerWin()
     {
         if (!gameActive) return;
-        gameActive       = false;
-        Time.timeScale   = 0f;
+        gameActive     = false;
+        Time.timeScale = 0f;
+
+        // Audio
+        if (AudioManager.Instance != null) AudioManager.Instance.PlayGanar();
+
+        // Limpiar textos y overlay
+        if (modeText)     modeText.text  = "";
+        if (alertText)    alertText.text = "";
+        if (dangerOverlay) dangerOverlay.color = new Color(1f, 0f, 0f, 0f);
+        if (alertCoroutine != null) StopCoroutine(alertCoroutine);
 
         if (winPanel) winPanel.SetActive(true);
     }
@@ -277,5 +315,68 @@ public class GameManager : MonoBehaviour
     {
         isHunterModeActive = true;
         hunterModeTimer    = duration;
+
+        // Mostrar modo cazador en pantalla (sin emojis)
+        ShowModeText(">> MODO CAZADOR <<", new Color(1f, 0.9f, 0f));
+        ShowAlert("Ahora puedes daniar al fantasma!", 3f);
+    }
+
+    // =============================================================
+    //  ACTUALIZAR BARRA VIDA FANTASMA
+    // =============================================================
+    public void UpdateGhostHealth(int current, int max)
+    {
+        if (ghostHealthBar == null) return;
+        ghostHealthBar.maxValue = max;
+        ghostHealthBar.value    = current;
+
+        // Cambiar color según vida restante
+        if (ghostHealthFill != null)
+        {
+            float pct = (float)current / max;
+            if      (pct > 0.5f) ghostHealthFill.color = new Color(0.2f, 0.8f, 0.2f); // Verde
+            else if (pct > 0.25f) ghostHealthFill.color = new Color(1f, 0.6f, 0f);    // Naranja
+            else                  ghostHealthFill.color = new Color(0.9f, 0.1f, 0.1f); // Rojo
+        }
+    }
+
+    // =============================================================
+    //  MOSTRAR MODO (texto permanente mientras dure)
+    // =============================================================
+    public void ShowModeText(string mensaje, Color color)
+    {
+        if (modeText == null) return;
+        modeText.text  = mensaje;
+        modeText.color = color;
+    }
+
+    // =============================================================
+    //  MOSTRAR ALERTA TEMPORAL (aparece y se desvanece)
+    // =============================================================
+    public void ShowAlert(string mensaje, float duracion = 2.5f)
+    {
+        if (alertText == null) return;
+        if (alertCoroutine != null) StopCoroutine(alertCoroutine);
+        alertCoroutine = StartCoroutine(AlertRoutine(mensaje, duracion));
+    }
+
+    IEnumerator AlertRoutine(string mensaje, float duracion)
+    {
+        alertText.text  = mensaje;
+        alertText.color = new Color(1f, 1f, 1f, 1f);
+
+        // Esperar y luego desvanecer
+        yield return new WaitForSeconds(duracion * 0.7f);
+
+        float timer = 0f;
+        float fadeTime = duracion * 0.3f;
+        while (timer < fadeTime)
+        {
+            timer += Time.deltaTime;
+            float a = Mathf.Lerp(1f, 0f, timer / fadeTime);
+            alertText.color = new Color(1f, 1f, 1f, a);
+            yield return null;
+        }
+        alertText.text = "";
     }
 }

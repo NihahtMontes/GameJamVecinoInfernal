@@ -61,6 +61,10 @@ public class EnemyIA : MonoBehaviour
         playerScript = Object.FindFirstObjectByType<Player>();
         currentHealth = maxHealth;
         GenerarRecorridoAleatorio();
+
+        // Inicializar barra de vida
+        if (GameManager.Instance != null)
+            GameManager.Instance.UpdateGhostHealth(currentHealth, maxHealth);
     }
 
     // =============================================================
@@ -88,18 +92,42 @@ public class EnemyIA : MonoBehaviour
         // ── Lógica de estado ──
         if (canSeePlayer)
         {
+            if (!isChasing)
+            {
+                if (GameManager.Instance != null)
+                {
+                    GameManager.Instance.ShowAlert("!CORRE! El fantasma te vio", 2.5f);
+                    GameManager.Instance.ShowModeText(">> EL FANTASMA TE PERSIGUE <<", Color.red);
+                }
+                if (AudioManager.Instance != null) AudioManager.Instance.StartPersecucion();
+            }
             isChasing   = true;
             heardPlayer = false;
         }
         else if (canHearPlayer)
         {
-            // Escucha: interrumpe ruta, va al sonido a velocidad de patrullaje
+            if (!heardPlayer)
+            {
+                if (GameManager.Instance != null)
+                {
+                    GameManager.Instance.ShowAlert("Cuidado... el fantasma te escucho", 2.5f);
+                    GameManager.Instance.ShowModeText(">> EL FANTASMA TE PERSIGUE <<", Color.red);
+                }
+                if (AudioManager.Instance != null) AudioManager.Instance.StartPersecucion();
+            }
             isChasing          = false;
             heardPlayer        = true;
             lastHeardPosition  = playerScript.transform.position;
         }
         else
         {
+            // Perdimos al fantasma de vista, limpiar indicador de modo
+            if ((isChasing || heardPlayer) && GameManager.Instance != null
+                && !GameManager.Instance.isHunterModeActive)
+            {
+                GameManager.Instance.ShowModeText("", Color.white);
+                if (AudioManager.Instance != null) AudioManager.Instance.StopPersecucion();
+            }
             isChasing   = false;
             heardPlayer = false;
         }
@@ -161,16 +189,32 @@ public class EnemyIA : MonoBehaviour
     }
 
     // =============================================================
-    //  HUIR (Modo Cazador)
+    //  HUIR (Modo Cazador) — va al punto de patrulla más lejano del jugador
     // =============================================================
     void HuirDelJugador()
     {
-        Vector2 dirLejos = (transform.position - playerScript.transform.position).normalized;
-        Vector2 objetivo = (Vector2)transform.position + dirLejos;
-        
-        transform.position = Vector2.MoveTowards(
-            transform.position, objetivo,
-            patrolSpeed * Time.deltaTime);
+        if (patrolPoints == null || patrolPoints.Count == 0) return;
+
+        // Buscar el punto de patrulla más alejado del jugador
+        Transform puntoMasLejano = null;
+        float mayorDistancia = -1f;
+
+        foreach (Transform punto in patrolPoints)
+        {
+            float dist = Vector2.Distance(punto.position, playerScript.transform.position);
+            if (dist > mayorDistancia)
+            {
+                mayorDistancia = dist;
+                puntoMasLejano = punto;
+            }
+        }
+
+        if (puntoMasLejano != null)
+        {
+            transform.position = Vector2.MoveTowards(
+                transform.position, puntoMasLejano.position,
+                patrolSpeed * Time.deltaTime);
+        }
     }
 
     // =============================================================
@@ -271,24 +315,32 @@ public class EnemyIA : MonoBehaviour
 
     IEnumerator DamageRoutine()
     {
-        isStunned = true; // Pausarlo un momentito por el impacto
+        isStunned = true;
         currentHealth--;
+
+        // Actualizar barra de vida
+        if (GameManager.Instance != null)
+        {
+            GameManager.Instance.UpdateGhostHealth(currentHealth, maxHealth);
+            GameManager.Instance.ShowAlert($"Le quitaste {maxHealth - currentHealth}/{maxHealth} vida al fantasma!", 2f);
+        }
 
         SpriteRenderer sr = GetComponent<SpriteRenderer>();
         Color originalColor = sr ? sr.color : Color.white;
-        if (sr) sr.color = Color.red; // Efecto de daño sangriento
+        if (sr) sr.color = Color.red;
 
-        yield return new WaitForSeconds(0.4f); // Pequeño retroceso/descanso
+        yield return new WaitForSeconds(0.4f);
 
         if (sr) sr.color = originalColor;
         isStunned = false;
 
         if (currentHealth <= 0)
         {
-            // Fantasma destruido, ganar partida
             if (GameManager.Instance != null)
+            {
+                GameManager.Instance.ShowAlert("!VICTORIA! Derrotaste al fantasma!", 3f);
                 GameManager.Instance.TriggerWin();
-            
+            }
             Destroy(gameObject);
         }
     }
@@ -299,11 +351,14 @@ public class EnemyIA : MonoBehaviour
         isChasing   = false;
         heardPlayer = false;
 
+        if (GameManager.Instance != null)
+            GameManager.Instance.ShowAlert("Aturdiste al fantasma! 3 segundos...", 2f);
+
         SpriteRenderer sr = GetComponent<SpriteRenderer>();
         Color originalColor = sr ? sr.color : Color.white;
         if (sr) sr.color = Color.yellow;
 
-        yield return new WaitForSeconds(3f); // 3 segundos de aturdimiento
+        yield return new WaitForSeconds(3f);
 
         if (sr) sr.color = originalColor;
         isStunned = false;
